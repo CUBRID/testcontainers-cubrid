@@ -18,6 +18,7 @@ public class CubridContainer extends JdbcDatabaseContainer<CubridContainer> {
     static final String NAME = "cubrid";
     static final String IMAGE = "cubrid/cubrid";
     static final String DEFAULT_TAG = "11.4";
+    static final String DEFAULT_LOCALE = "en_US.utf8";
 
     private static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse(IMAGE);
     private static final int BROKER_PORT = 33000;
@@ -44,6 +45,7 @@ public class CubridContainer extends JdbcDatabaseContainer<CubridContainer> {
         super(dockerImageName);
         dockerImageName.assertCompatibleWith(DEFAULT_IMAGE_NAME);
         addExposedPort(BROKER_PORT);
+        addEnv("CUBRID_LOCALE", DEFAULT_LOCALE);
     }
 
     @Override
@@ -114,6 +116,30 @@ public class CubridContainer extends JdbcDatabaseContainer<CubridContainer> {
             throw new IllegalArgumentException("Password cannot be null.");
         }
         this.password = password;
+        return self();
+    }
+
+    /**
+     * Sets the locale the database is created with, as {@code <language>_<territory>[.<charset>]},
+     * for example {@code ko_KR.utf8}. The locale fixes the database charset and cannot be changed
+     * once the database exists. Defaults to {@code en_US.utf8}; {@code en_US} alone means
+     * {@code en_US.iso88591}.
+     * <p>
+     * The built-in locales are {@code en_US.utf8}, {@code en_US.iso88591}, {@code ko_KR.utf8},
+     * {@code ko_KR.euckr}, {@code ko_KR.iso88591}, {@code tr_TR.utf8} and {@code tr_TR.iso88591}.
+     * Other locales need an image with compiled locale libraries. With a locale the image does not
+     * support, the database is not created and the container fails to start after the startup
+     * timeout.
+     *
+     * @param locale the CUBRID locale name
+     * @return this container
+     * @throws IllegalArgumentException if {@code locale} is null or empty
+     */
+    public CubridContainer withLocale(String locale) {
+        if (locale == null || locale.isEmpty()) {
+            throw new IllegalArgumentException("Locale cannot be null or empty.");
+        }
+        addEnv("CUBRID_LOCALE", locale);
         return self();
     }
 }
