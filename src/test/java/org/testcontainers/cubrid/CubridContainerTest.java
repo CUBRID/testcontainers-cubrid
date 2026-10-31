@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -83,5 +84,71 @@ class CubridContainerTest {
     void shouldRejectNullPassword() {
         assertThatThrownBy(() -> new CubridContainer(IMAGE).withPassword(null))
             .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldUseUtf8LocaleByDefault() throws SQLException {
+        // The driver encodes text with the JVM default charset unless charSet is set.
+        try (CubridContainer cubrid = new CubridContainer(IMAGE).withUrlParam("charSet", "utf-8")) {
+            cubrid.start();
+
+            try (Connection conn = DriverManager.getConnection(
+                    cubrid.getJdbcUrl(), cubrid.getUsername(), cubrid.getPassword());
+                 Statement stmt = conn.createStatement()) {
+                assertThat(charset(stmt)).isEqualTo("utf8");
+
+                stmt.execute("CREATE TABLE greeting (msg VARCHAR(100))");
+                try (PreparedStatement insert = conn.prepareStatement("INSERT INTO greeting VALUES (?)")) {
+                    insert.setString(1, "한글 테스트");
+                    insert.executeUpdate();
+                }
+                try (ResultSet rs = stmt.executeQuery("SELECT msg FROM greeting")) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getString(1)).isEqualTo("한글 테스트");
+                }
+            }
+        }
+    }
+
+    @Test
+    void shouldUseConfiguredLocale() throws SQLException {
+        try (CubridContainer cubrid = new CubridContainer(IMAGE).withLocale("en_US")) {
+            cubrid.start();
+
+            assertThat(charset(cubrid)).isEqualTo("iso88591");
+        }
+    }
+
+    @Test
+    void shouldKeepLocaleSetWithEnv() throws SQLException {
+        try (CubridContainer cubrid = new CubridContainer(IMAGE).withEnv("CUBRID_LOCALE", "en_US")) {
+            cubrid.start();
+
+            assertThat(charset(cubrid)).isEqualTo("iso88591");
+        }
+    }
+
+    @Test
+    void shouldRejectEmptyLocale() {
+        assertThatThrownBy(() -> new CubridContainer(IMAGE).withLocale(null))
+            .isInstanceOf(IllegalArgumentException.class);
+
+        assertThatThrownBy(() -> new CubridContainer(IMAGE).withLocale(""))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private static String charset(CubridContainer cubrid) throws SQLException {
+        try (Connection conn = DriverManager.getConnection(
+                cubrid.getJdbcUrl(), cubrid.getUsername(), cubrid.getPassword());
+             Statement stmt = conn.createStatement()) {
+            return charset(stmt);
+        }
+    }
+
+    private static String charset(Statement stmt) throws SQLException {
+        try (ResultSet rs = stmt.executeQuery("SELECT CHARSET('a')")) {
+            assertThat(rs.next()).isTrue();
+            return rs.getString(1);
+        }
     }
 }
