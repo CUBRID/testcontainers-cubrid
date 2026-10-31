@@ -37,13 +37,57 @@ dependencies {
     testRuntimeOnly   'org.cubrid:cubrid-jdbc:11.3.2.0053'
 }
 
-tasks.named('test', Test) {
+tasks.withType(Test).configureEach {
     useJUnitPlatform()
     testLogging {
         events 'passed', 'failed', 'skipped'
         exceptionFormat 'full'
         showStandardStreams = false
     }
+}
+
+// Images the tests can run against, keyed by the value -Pcubrid.version accepts.
+// Keep in sync with the matrix in .github/workflows/ci.yml.
+def cubridImages = [
+    '10.2'   : 'cubrid/cubrid:10.2',
+    '11.0'   : 'cubrid/cubrid:11.0',
+    '11.2'   : 'cubrid/cubrid:11.2',
+    '11.3'   : 'cubrid/cubrid:11.3',
+    '11.4'   : 'cubrid/cubrid:11.4',
+    'nightly': 'ghcr.io/srltas/cubrid-nightly:nightly',
+]
+
+// CubridImageSubstitutor reads cubrid.image in the test JVM.
+def useCubridVersion = { Test testTask, String cubridVersion ->
+    def image = cubridImages[cubridVersion]
+    if (image == null) {
+        throw new GradleException(
+            "Unknown cubrid.version '${cubridVersion}'. Supported: ${cubridImages.keySet().join(', ')}")
+    }
+    testTask.systemProperty 'cubrid.image', image
+    testTask.doNotTrackState('CUBRID images are republished under the same tag')
+}
+
+def selectedCubridVersion = providers.gradleProperty('cubrid.version').orNull
+if (selectedCubridVersion != null) {
+    tasks.named('test', Test) { useCubridVersion(it, selectedCubridVersion) }
+}
+
+def versionTests = cubridImages.keySet().collect { cubridVersion ->
+    def suffix = cubridVersion == 'nightly' ? 'Nightly' : cubridVersion.replace('.', '_')
+    tasks.register("testCubrid${suffix}", Test) {
+        description = "Runs the tests against ${cubridImages[cubridVersion]}."
+        group = 'verification'
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useCubridVersion(it, cubridVersion)
+    }
+}
+
+tasks.register('testAllVersions') {
+    description = 'Runs the tests against every CUBRID version in parallel.'
+    group = 'verification'
+    dependsOn versionTests
 }
 
 mavenPublishing {

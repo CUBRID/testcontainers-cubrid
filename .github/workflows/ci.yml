@@ -15,7 +15,13 @@ permissions:
 
 jobs:
   build:
+    name: build (CUBRID ${{ matrix.cubrid }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep in sync with cubridImages in build.gradle. Quoted so YAML keeps 11.0 as a string.
+        cubrid: ['10.2', '11.0', '11.2', '11.3', '11.4', 'nightly']
     steps:
       - uses: actions/checkout@v4
 
@@ -29,4 +35,4 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build and test
-        run: ./gradlew build --no-daemon
+        run: ./gradlew build -Pcubrid.version=${{ matrix.cubrid }} --no-daemon

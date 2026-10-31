@@ -91,6 +91,31 @@ Requirements: JDK 17 and Docker.
 ./gradlew build
 ```
 
+### Testing against other CUBRID versions
+
+`./gradlew test` runs the tests against `cubrid/cubrid:11.4`. Pass `-Pcubrid.version` to run them against another image:
+
+```sh
+./gradlew test -Pcubrid.version=10.2
+```
+
+| `cubrid.version` | Image |
+|---|---|
+| `10.2` | `cubrid/cubrid:10.2` |
+| `11.0` | `cubrid/cubrid:11.0` |
+| `11.2` | `cubrid/cubrid:11.2` |
+| `11.3` | `cubrid/cubrid:11.3` |
+| `11.4` | `cubrid/cubrid:11.4` |
+| `nightly` | `ghcr.io/srltas/cubrid-nightly:nightly` (nightly build of CUBRID `develop`) |
+
+Each version also has its own task: `testCubrid10_2`, `testCubrid11_0`, `testCubrid11_2`, `testCubrid11_3`, `testCubrid11_4` and `testCubridNightly`. `testAllVersions` runs all six in parallel; add `--continue` to see every version's result even when one fails, or `--max-workers=2` to run fewer at once:
+
+```sh
+./gradlew testAllVersions --continue
+```
+
+The version tasks always run, because image tags, including the release ones, are republished in place. Docker still reuses an image it has already pulled, so run `docker pull <image>` first to test the latest push, for example `docker pull ghcr.io/srltas/cubrid-nightly:nightly`.
+
 ## License
 
 [MIT](LICENSE) — Copyright (c) 2026 CUBRID RDBMS
