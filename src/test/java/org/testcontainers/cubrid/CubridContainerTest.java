@@ -87,9 +87,11 @@ class CubridContainerTest {
     }
 
     @Test
-    void shouldUseUtf8LocaleByDefault() throws SQLException {
+    void shouldUseConfiguredLocale() throws SQLException {
         // The driver encodes text with the JVM default charset unless charSet is set.
-        try (CubridContainer cubrid = new CubridContainer(IMAGE).withUrlParam("charSet", "utf-8")) {
+        try (CubridContainer cubrid = new CubridContainer(IMAGE)
+                .withLocale("ko_KR.utf8")
+                .withUrlParam("charSet", "utf-8")) {
             cubrid.start();
 
             try (Connection conn = DriverManager.getConnection(
@@ -111,8 +113,8 @@ class CubridContainerTest {
     }
 
     @Test
-    void shouldUseConfiguredLocale() throws SQLException {
-        try (CubridContainer cubrid = new CubridContainer(IMAGE).withLocale("en_US")) {
+    void shouldUseImageLocaleByDefault() throws SQLException {
+        try (CubridContainer cubrid = new CubridContainer(IMAGE)) {
             cubrid.start();
 
             assertThat(charset(cubrid)).isEqualTo("iso88591");
@@ -121,10 +123,10 @@ class CubridContainerTest {
 
     @Test
     void shouldKeepLocaleSetWithEnv() throws SQLException {
-        try (CubridContainer cubrid = new CubridContainer(IMAGE).withEnv("CUBRID_LOCALE", "en_US")) {
+        try (CubridContainer cubrid = new CubridContainer(IMAGE).withEnv("CUBRID_LOCALE", "ko_KR.euckr")) {
             cubrid.start();
 
-            assertThat(charset(cubrid)).isEqualTo("iso88591");
+            assertThat(charset(cubrid)).isEqualTo("euckr");
         }
     }
 

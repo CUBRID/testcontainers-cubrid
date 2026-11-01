@@ -71,11 +71,11 @@ try (Connection conn = DriverManager.getConnection(url)) {
 | `withDatabaseName(String)` | `testdb` | Database name to create on startup. |
 | `withUsername(String)` | `testuser` | Application user. Cannot be `dba` or `public` (CUBRID reserved). |
 | `withPassword(String)` | `testpass` | Password for the application user. May be empty; must not be `null`. |
-| `withLocale(String)` | `en_US.utf8` | [Locale](https://www.cubrid.org/manual/en/11.4/sql/i18n.html) the database is created with, as `<language>_<territory>[.<charset>]` (`en_US` alone means `en_US.iso88591`). It cannot be changed once the database exists. Built-in locales: `en_US.utf8`, `en_US.iso88591`, `ko_KR.utf8`, `ko_KR.euckr`, `ko_KR.iso88591`, `tr_TR.utf8`, `tr_TR.iso88591`. Other locales need an image with compiled locale libraries; otherwise the container fails to start. |
+| `withLocale(String)` | `en_US` (image default) | [Locale](https://www.cubrid.org/manual/en/11.4/sql/i18n.html) the database is created with, as `<language>_<territory>[.<charset>]` (`en_US` alone means `en_US.iso88591`). It cannot be changed once the database exists. Built-in locales: `en_US.utf8`, `en_US.iso88591`, `ko_KR.utf8`, `ko_KR.euckr`, `ko_KR.iso88591`, `tr_TR.utf8`, `tr_TR.iso88591`. Other locales need an image with compiled locale libraries; otherwise the container fails to start. |
 | `withInitScript(String)` | — | Classpath resource SQL script run after the container is ready. |
 | `withUrlParam(String, String)` | — | Additional JDBC URL parameter. |
 
-Non-ASCII text also needs a JDBC client charset that matches the database charset. The driver uses the JVM default charset, so for a UTF-8 database (the default) on a JVM whose default is not UTF-8 (for example on Windows before JDK 18), add `withUrlParam("charSet", "utf-8")`.
+The default `en_US` locale creates an `iso88591` database, where Korean and other text outside ISO-8859-1 comes back garbled without an error. For such text, use a UTF-8 locale, for example `withLocale("ko_KR.utf8")`. The JDBC client charset must also match the database charset: the driver uses the JVM default charset, so on a JVM whose default is not UTF-8 (for example on Windows before JDK 18), also add `withUrlParam("charSet", "utf-8")`.
 
 The container exposes broker port `33000`. Use `getJdbcUrl()` for the mapped URL or `getMappedPort(33000)` for the port number.
 
