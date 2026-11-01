@@ -18,7 +18,6 @@ public class CubridContainer extends JdbcDatabaseContainer<CubridContainer> {
     static final String NAME = "cubrid";
     static final String IMAGE = "cubrid/cubrid";
     static final String DEFAULT_TAG = "11.4";
-    static final String DEFAULT_LOCALE = "en_US.utf8";
 
     private static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse(IMAGE);
     private static final int BROKER_PORT = 33000;
@@ -45,7 +44,6 @@ public class CubridContainer extends JdbcDatabaseContainer<CubridContainer> {
         super(dockerImageName);
         dockerImageName.assertCompatibleWith(DEFAULT_IMAGE_NAME);
         addExposedPort(BROKER_PORT);
-        addEnv("CUBRID_LOCALE", DEFAULT_LOCALE);
     }
 
     @Override
@@ -122,7 +120,7 @@ public class CubridContainer extends JdbcDatabaseContainer<CubridContainer> {
     /**
      * Sets the locale the database is created with, as {@code <language>_<territory>[.<charset>]},
      * for example {@code ko_KR.utf8}. The locale fixes the database charset and cannot be changed
-     * once the database exists. Defaults to {@code en_US.utf8}; {@code en_US} alone means
+     * once the database exists. Defaults to the image's locale, {@code en_US}, which means
      * {@code en_US.iso88591}.
      * <p>
      * The built-in locales are {@code en_US.utf8}, {@code en_US.iso88591}, {@code ko_KR.utf8},
