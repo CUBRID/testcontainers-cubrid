@@ -82,6 +82,7 @@ The container exposes broker port `33000`. Use `getJdbcUrl()` for the mapped URL
 ## Compatibility
 
 - Java 8+ (the module is published targeting Java 8 bytecode)
+- Testcontainers 2.x (for Testcontainers 1.x, use 0.1.0)
 - Docker
 - CUBRID image: `cubrid/cubrid`
 - `withUsername()` does not accept `dba` or `public`. Those accounts already exist in CUBRID by default; pick any other name and the container will create that user with the password from `withPassword()`.

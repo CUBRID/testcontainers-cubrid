@@ -27,7 +27,7 @@ repositories {
 }
 
 dependencies {
-    api 'org.testcontainers:jdbc:1.21.4'
+    api 'org.testcontainers:testcontainers-jdbc:2.0.5'
 
     testImplementation platform('org.junit:junit-bom:5.14.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'

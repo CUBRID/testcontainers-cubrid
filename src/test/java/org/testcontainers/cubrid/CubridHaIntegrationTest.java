@@ -2,6 +2,7 @@ package org.testcontainers.cubrid;
 
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container.ExecResult;
+import org.testcontainers.containers.ExecConfig;
 import org.testcontainers.containers.Network;
 import org.testcontainers.lifecycle.Startables;
 
@@ -117,7 +118,7 @@ class CubridHaIntegrationTest {
         Instant deadline = Instant.now().plus(timeout);
         ExecResult last = null;
         while (Instant.now().isBefore(deadline)) {
-            last = node.execInContainerWithUser("cubrid", "cubrid", "hb", "status");
+            last = execAsCubrid(node, "cubrid", "hb", "status");
             if (last.getStdout().contains(expected)) {
                 return;
             }
@@ -140,7 +141,7 @@ class CubridHaIntegrationTest {
         Instant deadline = Instant.now().plus(timeout);
         ExecResult last = null;
         while (Instant.now().isBefore(deadline)) {
-            last = node.execInContainerWithUser("cubrid", "bash", "-c", csql);
+            last = execAsCubrid(node, "bash", "-c", csql);
             if (last.getStdout().contains(expected)) {
                 return;
             }
@@ -148,5 +149,9 @@ class CubridHaIntegrationTest {
         }
         fail("csql never returned '" + expected + "' within " + timeout
             + (last != null ? ". Last:\n" + last.getStdout() + last.getStderr() : ""));
+    }
+
+    private static ExecResult execAsCubrid(CubridContainer node, String... command) throws Exception {
+        return node.execInContainer(ExecConfig.builder().user("cubrid").command(command).build());
     }
 }
