@@ -3,6 +3,14 @@ package org.testcontainers.cubrid;
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+
 /**
  * Testcontainers implementation for CUBRID.
  * <p>
@@ -21,6 +29,7 @@ public class CubridContainer extends JdbcDatabaseContainer<CubridContainer> {
 
     private static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse(IMAGE);
     private static final int BROKER_PORT = 33000;
+    private static final int OUTPUT_LINES = 5;
 
     private String databaseName = "testdb";
     private String username = "testuser";
@@ -86,6 +95,63 @@ public class CubridContainer extends JdbcDatabaseContainer<CubridContainer> {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
+    protected void waitUntilContainerStarted() {
+        logger().info(
+            "Waiting for database connection to become available at {} using query '{}'",
+            getJdbcUrl(),
+            getTestQueryString()
+        );
+
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(getStartupTimeoutSeconds());
+        Exception lastConnectionException = null;
+        while (System.nanoTime() < deadline) {
+            String output = getLogs();
+            if (!isRunning()) {
+                throw new IllegalStateException(
+                    "CUBRID container stopped during startup:\n" + lastLines(output)
+                );
+            }
+            String failure = startupFailure(output);
+            if (failure != null) {
+                throw new IllegalStateException("CUBRID failed to start:\n" + failure);
+            }
+            // One attempt per pass: createConnection() would retry for connectTimeoutSeconds.
+            try (Connection connection = connect();
+                 Statement statement = connection.createStatement()) {
+                if (statement.execute(getTestQueryString())) {
+                    return;
+                }
+            } catch (NoDriverFoundException e) {
+                throw e;
+            } catch (Exception e) {
+                lastConnectionException = e;
+            }
+            try {
+                Thread.sleep(100L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while waiting for CUBRID to start", e);
+            }
+        }
+        throw new IllegalStateException(
+            String.format(
+                "Container is started, but cannot be accessed by (JDBC URL: %s), "
+                    + "please check container logs",
+                getJdbcUrl()
+            ),
+            lastConnectionException
+        );
+    }
+
+    private Connection connect() throws SQLException {
+        Properties properties = new Properties();
+        properties.put("user", getUsername());
+        properties.put("password", getPassword());
+        return getJdbcDriverInstance().connect(getJdbcUrl(), properties);
+    }
+
+    @Override
     public CubridContainer withDatabaseName(String databaseName) {
         if (databaseName == null || databaseName.isEmpty()) {
             throw new IllegalArgumentException("Database name cannot be null or empty.");
@@ -126,8 +192,8 @@ public class CubridContainer extends JdbcDatabaseContainer<CubridContainer> {
      * The built-in locales are {@code en_US.utf8}, {@code en_US.iso88591}, {@code ko_KR.utf8},
      * {@code ko_KR.euckr}, {@code ko_KR.iso88591}, {@code tr_TR.utf8} and {@code tr_TR.iso88591}.
      * Other locales need an image with compiled locale libraries. With a locale the image does not
-     * support, the database is not created and the container fails to start after the startup
-     * timeout.
+     * support, the database is not created and the container fails to start with CUBRID's error
+     * message.
      *
      * @param locale the CUBRID locale name
      * @return this container
@@ -139,5 +205,35 @@ public class CubridContainer extends JdbcDatabaseContainer<CubridContainer> {
         }
         addEnv("CUBRID_LOCALE", locale);
         return self();
+    }
+
+    static String startupFailure(String output) {
+        List<String> lines = nonBlankLines(output);
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            if (line.startsWith("Couldn't create database.") || line.startsWith("ERROR:")
+                    || (line.startsWith("++ ") && line.endsWith(": fail"))) {
+                int end = Math.min(i + OUTPUT_LINES, lines.size());
+                return String.join("\n", lines.subList(i, end));
+            }
+        }
+        return null;
+    }
+
+    private static String lastLines(String output) {
+        List<String> lines = nonBlankLines(output);
+        int start = Math.max(0, lines.size() - OUTPUT_LINES);
+        return String.join("\n", lines.subList(start, lines.size()));
+    }
+
+    private static List<String> nonBlankLines(String output) {
+        List<String> lines = new ArrayList<>();
+        for (String line : output.split("\\R")) {
+            String trimmed = line.trim();
+            if (!trimmed.isEmpty()) {
+                lines.add(trimmed);
+            }
+        }
+        return lines;
     }
 }
