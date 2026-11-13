@@ -12,7 +12,7 @@ A [Testcontainers](https://testcontainers.com) module for running [CUBRID](https
 
 ```groovy
 dependencies {
-    testImplementation 'org.cubrid:testcontainers-cubrid:0.1.0'
+    testImplementation 'org.cubrid:testcontainers-cubrid:0.2.0'
     testRuntimeOnly   'org.cubrid:cubrid-jdbc:11.3.2.0053'
 }
 ```
@@ -23,7 +23,7 @@ dependencies {
 <dependency>
     <groupId>org.cubrid</groupId>
     <artifactId>testcontainers-cubrid</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <scope>test</scope>
 </dependency>
 <dependency>
@@ -64,6 +64,31 @@ try (Connection conn = DriverManager.getConnection(url)) {
 }
 ```
 
+The tag after `cubrid:` selects the `cubrid/cubrid` image tag, and the path is the database name. The URL also takes query parameters:
+
+- `user` and `password` set the application user, like `withUsername` and `withPassword`: `jdbc:tc:cubrid:11.4://localhost/mydb?user=foo&password=bar`. Credentials passed to `DriverManager.getConnection` or set on a `DataSource`, such as `spring.datasource.username`, are ignored.
+- Other parameters, such as `charSet=utf-8`, are passed on to the CUBRID JDBC URL.
+- Testcontainers options such as `TC_INITSCRIPT` are described in the [Testcontainers JDBC documentation](https://java.testcontainers.org/modules/databases/jdbc/).
+
+### Spring Boot
+
+With `org.springframework.boot:spring-boot-testcontainers` and `org.testcontainers:testcontainers-junit-jupiter` as test dependencies, `@ServiceConnection` points the application's `DataSource` at the container:
+
+```java
+@SpringBootTest
+@Testcontainers
+class ApplicationTests {
+
+    @Container
+    @ServiceConnection
+    static CubridContainer cubrid = new CubridContainer("cubrid/cubrid:11.4");
+
+    // ...
+}
+```
+
+This needs Spring Boot 4.x, which manages Testcontainers 2.x. Spring Boot 3.x manages Testcontainers 1.x, so use 0.1.0 with it.
+
 ## Configuration
 
 | Method | Default | Description |
@@ -78,6 +103,18 @@ try (Connection conn = DriverManager.getConnection(url)) {
 The default `en_US` locale creates an `iso88591` database, where Korean and other text outside ISO-8859-1 comes back garbled without an error. For such text, use a UTF-8 locale, for example `withLocale("ko_KR.utf8")`. The JDBC client charset must also match the database charset: the driver uses the JVM default charset, so on a JVM whose default is not UTF-8 (for example on Windows before JDK 18), also add `withUrlParam("charSet", "utf-8")`.
 
 The container exposes broker port `33000`. Use `getJdbcUrl()` for the mapped URL or `getMappedPort(33000)` for the port number.
+
+### Server parameters
+
+CUBRID also takes each `cubrid.conf` parameter from an environment variable named `CUBRID_` followed by the parameter name in upper case, for example `CUBRID_DATA_BUFFER_SIZE` for `data_buffer_size`. A value set this way overrides the one in `cubrid.conf` (see `SOURCE_ENV` in the [manual](https://www.cubrid.org/manual/en/11.4/admin/config.html#etc)). Set them on the container with `withEnv`:
+
+```java
+new CubridContainer("cubrid/cubrid:11.4")
+    .withEnv("CUBRID_DATA_BUFFER_SIZE", "64M")
+    .withEnv("CUBRID_ORACLE_STYLE_EMPTY_STRING", "yes");
+```
+
+A misspelled name is ignored without an error, and an invalid value only logs an error in the container output while the `cubrid.conf` value stays in effect.
 
 ## Compatibility
 
